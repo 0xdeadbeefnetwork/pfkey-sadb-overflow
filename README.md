@@ -9,6 +9,7 @@
 ```
 
 FreeBSD **PF_KEY** stack overflow. Sibling of **CVE-2026-3038** (rtsock `sa_len`).  
+Once you've kldload'd ipsec.
 Same family of bug: kernel trusts `sa_len` and `bcopy`s into a stack object that is way smaller than what you claim.
 
 **Target lab:** FreeBSD **15.1-RELEASE-p2** amd64  
