@@ -1,5 +1,4 @@
 pfkey_lpe
-pfkey_lpe_kmem
 *.o
 *.core
 .DS_Store

@@ -52,11 +52,9 @@ rtsock already got a CVE for the same `sa_len` sin. PF_KEY was still doing it.
 
 ---
 
-## two ways to meow
+## the exploit
 
-### 1. dual overflow, no `/dev/mem` (default PoC)
-
-`pfkey_lpe.c`
+`pfkey_lpe.c` - dual overflow, no `/dev/mem`.
 
 Send **both** `NEW_ADDRESS_SRC` and `NEW_ADDRESS_DST` with `sa_len=255`.
 
@@ -82,18 +80,6 @@ Unprivileged layout hint on other boxes:
 ```sh
 sysctl vm.pmap.kernel_maps
 ```
-
-### 2. single overflow + kmem walk (older)
-
-`pfkey_lpe_kmem.c`
-
-Needs root **and** `/dev/mem` / `libkvm` to:
-
-- leak your PF_KEY `struct socket *` from the fd table  
-- find an `M_PKTHDR` mbuf on `so_rcv`  
-- pick a writable zero BSS page  
-
-Then plant `sav` / `so` / `m` and ROP so the **error path** also survives. More moving parts. Kept as a lab fossil.
 
 ---
 
@@ -141,25 +127,11 @@ Needs `ipsec` / PF_KEY plumbing loaded enough that ESP SA ADD works.
 On FreeBSD 15.1-p2 (or retarget first):
 
 ```sh
-# default: no libkvm, no /dev/mem
 cc -o pfkey_lpe pfkey_lpe.c
 mdo ./pfkey_lpe
-
-# optional: kmem path
-cc -o pfkey_lpe_kmem pfkey_lpe_kmem.c -lkvm
-mdo ./pfkey_lpe_kmem
 ```
 
 Hardcoded for **this** lab image: gadgets, CR4, BSS, offsets. Wrong kernel → panic. Snapshot first.
-
----
-
-## files
-
-| file | role |
-|------|------|
-| `pfkey_lpe.c` | dual `sa_len` overflow, no mem - the clean cat |
-| `pfkey_lpe_kmem.c` | single overflow + kvm/`/dev/mem` path |
 
 ---
 
@@ -167,7 +139,6 @@ Hardcoded for **this** lab image: gadgets, CR4, BSS, offsets. Wrong kernel → p
 
 - confirmed RIP land at **152** with stack marker `0xD9` on the exact p2 box  
 - early drafts assumed no SMEP; real box had it - CR4 ROP fixed that  
-- single overflow + error path needs valid `so`/`m` or you die before `ret`  
 - dual overflow + matching sockaddrs = success path = fewer pointers to fake  
 - `key_freesav` is the other sharp edge; zero refcnt via BSS is the soft landing  
 - same class as CVE-2026-3038; patch hunters should grep every `sa_len` `bcopy`/`memcpy` into fixed storage, not just routing sockets  
